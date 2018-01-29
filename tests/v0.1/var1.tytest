@@ -1,0 +1,19 @@
+<tytest>
+
+<sample>
+	x = {5}
+</sample>
+
+<expected>
+	int x = 5;
+</expected>
+
+<checker>
+	int main()
+	{
+		putchar(x == 5 ? '0' : '1');
+		return 0;
+	}
+</checker>
+
+</tytest>
