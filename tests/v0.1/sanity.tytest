@@ -1,21 +1,17 @@
 <tytest>
 
 <sample>
-	x = {5}
 </sample>
 
 <expected>
-	int x = 5;
 </expected>
 
 <checker>
 	#include &lt;cstdio&gt;
 
-	extern int x;
-
 	int main()
 	{
-		putchar(x == 5 ? '0' : '1');
+		putchar('0');
 		return 0;
 	}
 </checker>
