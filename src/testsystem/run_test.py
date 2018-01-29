@@ -1,9 +1,22 @@
 import sys, os
 import xml.etree.ElementTree as ET
-import shutil
+import shutil, subprocess, filecmp
 
 assert sys.version_info >= (3,1)
 assert len(sys.argv) >= 2
+
+include_dir0 = "F:\\Microsoft visual Studio 2014\\VC\\include"
+include_dir1 = "C:\\Program Files (x86)\\Windows Kits\\10\\Include\\10.0.14393.0\\ucrt"
+
+def find_compiler(root):
+	assert os.path.isdir(root)
+	for subdir, dirs, files in os.walk(root):
+		for file in files:
+			if file == 'tyx.exe':
+				filepath = os.path.join(subdir, file)
+				print("[OK] Found compiler at " + filepath)
+				return filepath
+	return ''
 
 def run_test_from_file(test_file):
 	print("[OK] Running test file: " + str(test_file))
@@ -36,8 +49,42 @@ def run_test_from_file(test_file):
 		text_file.write(checker)
 	print("[OK] Created temporary source files")
 
-	shutil.rmtree('tmp')
-	print("[OK] Cleared temporary source files")
+	compilerpath = find_compiler("..")
+	if compilerpath == '':
+		compilerpath = find_compiler("../..")
+	assert compilerpath != ''
+
+	print("[OK] Compiling checker..")
+	subprocess.call(['clang++', '-emit-llvm', '-I', include_dir0, '-I', include_dir1, '-S', 'tmp/checker.c', '-o', 'tmp/checker.s'])
+	subprocess.call(['llvm-as', 'tmp/checker.s', '-o', 'tmp/checker.bc'])
+
+	print("[OK] Compiling expected..")
+	subprocess.call(['clang++', '-emit-llvm', '-I', include_dir0, '-I', include_dir1, '-S', 'tmp/expected.c', '-o', 'tmp/expected.s'])
+	subprocess.call(['llvm-as', 'tmp/expected.s', '-o', 'tmp/expected.bc'])
+
+	print("[OK] Executing " + compilerpath + " tmp/sample.ty > sample.s")
+	with open('tmp/sample.s', 'w') as outfile:
+		subprocess.call([compilerpath, 'tmp/sample.ty'], stdout=outfile)
+	subprocess.call(['llvm-as', 'tmp/sample.s', '-o', 'tmp/sample.bc'])
+
+	subprocess.call(['llvm-link', 'tmp/sample.bc', 'tmp/checker.bc', '-o', 'tmp/actual.bc'])
+	subprocess.call(['llvm-link', 'tmp/expected.bc', 'tmp/checker.bc', '-o', 'tmp/expected.bc'])
+
+	with open('tmp/expected.out', 'w') as outfile:
+		subprocess.call(['lli', 'tmp/expected.bc'], stdout=outfile)
+
+	with open('tmp/actual.out', 'w') as outfile:
+		subprocess.call(['lli', 'tmp/actual.bc'], stdout=outfile)
+
+	if filecmp.cmp('tmp/actual.out', 'tmp/expected.out'):
+		print('[PASS] ' + test_file)
+		shutil.rmtree('tmp')
+		print("[OK] Cleared temporary source files")
+	else:	
+		print('[FAIL] ' + test_file)
+		subprocess.call(['diff', 'tmp/actual.out', 'tmp/expected.out'])
+		# subprocess.call(['diff', 'tmp/sample.s', 'tmp/expected.s'])
+
 	return 0
 
 def run_test_from_dir(test_dir):
