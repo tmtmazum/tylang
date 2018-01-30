@@ -1,0 +1,3 @@
+[submodule "external/cppcoretools"]
+	path = external/cppcoretools
+	url = https://github.com/tmtmazum/cppcoretools

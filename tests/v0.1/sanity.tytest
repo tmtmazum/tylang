@@ -1,0 +1,19 @@
+<tytest>
+
+<sample>
+</sample>
+
+<expected>
+</expected>
+
+<checker>
+	#include &lt;cstdio&gt;
+
+	int main()
+	{
+		putchar('0');
+		return 0;
+	}
+</checker>
+
+</tytest>
