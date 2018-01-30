@@ -6,7 +6,8 @@
 namespace ty { namespace Attribute
 {
 
-enum TyObjectFlags
+//! List of static attributes for TyObjects
+enum TyObjectAttribute
 {
 	HasGlobal = 0x0001
 };
@@ -14,15 +15,19 @@ enum TyObjectFlags
 
 } // namespace Attribute
 
+//! Base object for all types in the tylang libraries
 class TyObjectBase { };
 
+//! Object that all tylang objects must derive from
 template <uint64_t attributes>
 class TyObject : public TyObjectBase
 {
 public:
+	//! Returns true if this type has a top-level global instance
 	constexpr static auto has_global() { return attributes & Attribute::HasGlobal; }
 };
 
+//! Returns a reference to the top-level global instance of a TyObject
 template <typename T>
 static T& Global()
 {

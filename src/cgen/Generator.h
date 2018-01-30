@@ -8,16 +8,22 @@ namespace ty
 class Definition;
 class DataDefinition;
 
+//! Abstract interface for generating code
 class Generator
 {
 public:
-	static bool is_exportable_name(std::string const& name) { return true; }
+	//! Returns whether or not 'name' satisfies the rules for a valid exportable name 
+	//! in the given output langauge
+	virtual bool is_exportable_name(std::string const& name) const { return true; }
 
+	//! Export a symbol definition to the identifier 'name'
 	virtual void export_as(std::string const& name, Definition const&) = 0;
 
+	//! Export a symbol DataDefinition to the identifier 'name'
 	virtual void export_as(std::string const& name, DataDefinition const&) = 0;
 };
 
+//! Generalization of a Generator that writes using a unique_file (wrapper around C file)
 class FileGenerator : public Generator
 {
 public:
@@ -30,4 +36,3 @@ protected:
 };
 
 } // namespace ty
-

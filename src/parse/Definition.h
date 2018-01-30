@@ -3,12 +3,14 @@
 namespace ty
 {
 
+//! List of native types to be exported as
 enum class NativeType
 {
 	I_32,
 	I_64
 };
 
+//! Creates a string representation for a NativeType (as expected by LLVM-IR)
 inline auto const* to_string(NativeType const n)
 {
 	switch (n)
@@ -20,6 +22,7 @@ inline auto const* to_string(NativeType const n)
 	}
 }
 
+//! Returns the default alignment for a native type
 inline auto alignment_of(NativeType const n)
 {
 	switch (n)
@@ -31,12 +34,14 @@ inline auto alignment_of(NativeType const n)
 	}
 }
 
+//! Base class for a symbol definition
 class Definition
 {
 public:
 	virtual ~Definition() = default;
 };
 
+//! Definition of a data variable
 class DataDefinition : public Definition
 {
 public:
@@ -58,6 +63,7 @@ private:
 	int			m_alignment{ 0 };
 };
 
+//! Specialization of a definition of the int-32 type
 class Int32Definition : public DataDefinition
 {
 public:

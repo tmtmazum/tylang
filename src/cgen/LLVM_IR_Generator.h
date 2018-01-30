@@ -5,6 +5,7 @@
 namespace ty
 {
 
+//! Generates code for the LLVM IR format
 class LLVM_IR_Generator : public FileGenerator
 {
 public:
