@@ -39,3 +39,13 @@
 *.cmake
 *.log
 *.tlog
+*.bin
+*.stamp
+*.depend
+*.list
+*.check_cache
+*.suo
+*.pdb
+*.rule
+*.ilk
+*.cache

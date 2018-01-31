@@ -10,6 +10,7 @@ void LLVM_IR_Generator::export_as(std::string const& name, Definition const& d)
 	{
 		export_as(name, *data);
 	}
+	std::abort();
 }
 
 void LLVM_IR_Generator::export_as(std::string const& name, DataDefinition const& d)
@@ -20,5 +21,4 @@ void LLVM_IR_Generator::export_as(std::string const& name, DataDefinition const&
 		name.c_str(), to_string(d.native_type()), d.value(), d.alignment());
 }
 
-
-}
+} // namespace ty

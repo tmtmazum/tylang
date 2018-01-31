@@ -21,7 +21,7 @@ int main(int argc, char** argv)
 
 //	cct::println("@x = global i32 5, align 4");
 
-	Global<SymbolTable>().bind_new<Int32Definition>("x", 5);
+	Global<SymbolTable>().add<Int32Definition>("x", 5);
 	
 	Global<ExportList>().emplace_back("x");
 

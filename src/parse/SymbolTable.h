@@ -17,7 +17,7 @@ public: // member virtual
 
 	//! Binds a symbol to a definition.
 	//! \pre	'name' must not already be in the SymbolTable
-	void bind_new_definition(std::string name, std::unique_ptr<Definition> definition)
+	void add_definition(std::string name, std::unique_ptr<Definition> definition)
 	{
 		CCT_CHECK(definition_at(name) == nullptr);
 		
@@ -28,11 +28,11 @@ public: // member virtual
 
 	//! Binds a symbol to a construct
 	template <typename T, typename... Args>
-	void bind_new(std::string name, Args&&... args)
+	void add(std::string name, Args&&... args)
 	{
 		if (std::is_base_of<Definition, T>::value)
 		{
-			bind_new_definition(std::move(name), std::make_unique<T>(std::forward<Args>(args)...));
+			add_definition(std::move(name), std::make_unique<T>(std::forward<Args>(args)...));
 		}
 		else
 		{
