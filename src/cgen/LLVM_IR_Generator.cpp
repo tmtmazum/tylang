@@ -10,7 +10,10 @@ void LLVM_IR_Generator::export_as(std::string const& name, Definition const& d)
 	{
 		export_as(name, *data);
 	}
-	std::abort();
+	else
+	{
+		std::abort();
+	}
 }
 
 void LLVM_IR_Generator::export_as(std::string const& name, DataDefinition const& d)
