@@ -36,6 +36,29 @@ int main(int argc, char** argv)
 
     CCT_CHECK(argc >= 2);
 
+    if (argc == 3)
+    {
+        if (std::string("tokenize") == argv[1])
+        {
+            auto list = ty::tokenize(argv[2]);
+            cct::println("Tokenizing '%s'", argv[2]);
+            for (auto const& token : list)
+            {
+                cct::println("%s", token.as_string().c_str());
+            }
+            return 0;
+        }
+        if (std::string("parse") == argv[1])
+        {
+            auto const ast = ty::parse(ty::tokenize(argv[2]));
+            for (auto const& expr : ast.exprs)
+            {
+                expr->print(cct::unique_file{ stdout });
+            }
+            return 0;
+        }
+    }
+
     using namespace ty;
 
     cct::unique_file in{ argv[1], "r" };
@@ -46,7 +69,7 @@ int main(int argc, char** argv)
         text += c;
     }
     auto list = tokenize(text);
-    for (auto token : list)
+    for (auto const& token : list)
     {
         cct::println("; %s", token.as_string().c_str());
     }

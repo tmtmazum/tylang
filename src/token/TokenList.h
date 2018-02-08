@@ -64,6 +64,7 @@ namespace ty
 			case Type::ARROW: return "arrow";
 			case Type::NUM: return "num";
             case Type::COMMA: return "comma";
+            case Type::eof: return "eof";
 			default:
 			case Type::UNKNOWN: return "unknown";
 			}
@@ -90,6 +91,7 @@ namespace ty
         {}
 
         auto& buffer() { return m_buffer; }
+        auto const& buffer() const { return m_buffer; }
     };
 
 	inline TokenList tokenize(std::string s)
