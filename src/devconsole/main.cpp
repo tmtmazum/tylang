@@ -1,6 +1,5 @@
 #include <cppcoretools\print.h>
 #include "parse/SymbolTable.h"
-#include "parse/Definition.h"
 #include "parse/Parse.h"
 #include "cgen/LLVM_IR_Generator.h"
 #include "token/TokenList.h"
@@ -51,7 +50,10 @@ int main(int argc, char** argv)
     {
         cct::println("; %s", token.as_string().c_str());
     }
-//	cct::println("@x = global i32 5, align 4");
+
+    return -1; // fail for now
+
+    //	cct::println("@x = global i32 5, align 4");
 
     auto ast = parse(list);
 

@@ -1,5 +1,4 @@
 #include "LLVM_IR_Generator.h"
-#include "parse/Definition.h"
 #include "parse/Parse.h"
 
 namespace ty
