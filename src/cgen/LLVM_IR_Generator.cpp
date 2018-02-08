@@ -1,27 +1,29 @@
 #include "LLVM_IR_Generator.h"
 #include "parse/Definition.h"
+#include "parse/Parse.h"
 
 namespace ty
 {
-
-void LLVM_IR_Generator::export_as(std::string const& name, Definition const& d)
+void LLVM_IR_Generator::generate(FunctionDefnExpr const& expr)
 {
-	if (auto const* data = dynamic_cast<DataDefinition const*>(&d))
-	{
-		export_as(name, *data);
-	}
-	else
-	{
-		std::abort();
-	}
+    CCT_CHECK(is_exportable_name(expr.id()));
+
+    m_file.printf("define %s @%s() {");
+    begin_function();
+    for (auto const& a : expr.m_body->exprs)
+    {
+        a->generate(*this);
+    }
+    end_function();
 }
 
-void LLVM_IR_Generator::export_as(std::string const& name, DataDefinition const& d)
+void LLVM_IR_Generator::generate(Int32LiteralExpr const& expr)
 {
-	CCT_CHECK(is_exportable_name(name));
 
-	m_file.printf("@%s = global %s %d, align %d\n", 
-		name.c_str(), to_string(d.native_type()), d.value(), d.alignment());
+}
+
+void LLVM_IR_Generator::generate(ReturnExpr const& expr)
+{
 }
 
 } // namespace ty
