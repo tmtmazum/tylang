@@ -59,7 +59,9 @@ def run_test_from_file(test_file):
 	subprocess.call(['llvm-as', 'tmp/checker.s', '-o', 'tmp/checker.bc'])
 
 	print("[OK] Compiling expected..")
-	subprocess.call(['clang++', '-emit-llvm', '-I', include_dir0, '-I', include_dir1, '-S', 'tmp/expected.c', '-o', 'tmp/expected.s'])
+	subprocess.call(['testsystem\emit_llvm.bat', 'tmp/expected.c', 'tmp/expected.s'])
+
+	# subprocess.call(['clang++', '-emit-llvm', '-I', include_dir0, '-I', include_dir1, '-S', 'tmp/expected.c', '-o', 'tmp/expected.s'])
 	subprocess.call(['llvm-as', 'tmp/expected.s', '-o', 'tmp/expected.bc'])
 
 	print("[OK] Executing " + compilerpath + " tmp/sample.ty > sample.s")

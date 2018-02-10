@@ -4,53 +4,54 @@
 #include <string>
 #include <memory>
 #include "common/TyObject.h"
+#include "Expr.h"
 
 namespace ty
 {
 
-class Definition;
+class SymbolTable;
 
 //! Table of symbols for a given scope
 class SymbolTable : public TyObject<Attribute::HasGlobal>
 {
 public: // member virtual
 
-	//! Binds a symbol to a definition.
+	explicit SymbolTable(SymbolTable const* parent = nullptr)
+		: m_parent{ parent } {}
+
+	//! Binds a symbol to a Expr.
 	//! \pre	'name' must not already be in the SymbolTable
-	void add_definition(std::string name, std::unique_ptr<Definition> definition)
+	void add_expr(std::string name, Expr* expr)
 	{
-		CCT_CHECK(definition_at(name) == nullptr);
+		CCT_CHECK(expr_at(name) == nullptr);
 		
 		using pair_t = std::decay_t<decltype(m_definitions)::value_type>;
 
-		m_definitions.emplace(pair_t{ std::move(name), std::move(definition)});
+		m_definitions.emplace(pair_t{ std::move(name), std::move(expr)});
 	}
 
-	//! Binds a symbol to a construct
-	template <typename T, typename... Args>
-	void add(std::string name, Args&&... args)
-	{
-		if (std::is_base_of<Definition, T>::value)
-		{
-			add_definition(std::move(name), std::make_unique<T>(std::forward<Args>(args)...));
-		}
-		else
-		{
-			std::abort();
-		}
-	}
+    void set_parent(SymbolTable const* parent)
+    {
+        m_parent = parent;
+    }
 
 	//! Search for the definition with 'name' in this SymbolList
 	//!		\returns	pointer to definition, if found
 	//!					nullptr, otherwise
-	virtual Definition* definition_at(std::string const& name)
+	virtual Expr* expr_at(std::string const& name) const
 	{
 		auto const it = m_definitions.find(name);
-		return it != m_definitions.end() ? it->second.get() : nullptr;
+		if (it != m_definitions.end())
+		{
+			return it->second;
+		}
+		return m_parent ? m_parent->expr_at(name) : nullptr;
 	}
 
+	auto count() const { return m_definitions.size(); }
 private:	
-	std::unordered_map<std::string, std::unique_ptr<Definition>>	m_definitions;
+	std::unordered_map<std::string, Expr*>	                        m_definitions;
+	SymbolTable const*												m_parent = nullptr;
 };
 
 //! List of symbols chosen for export to outside of the module

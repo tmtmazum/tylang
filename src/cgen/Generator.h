@@ -7,6 +7,18 @@ namespace ty
 
 class Definition;
 class DataDefinition;
+class Expr;
+class LiteralExpr;
+class Int32LiteralExpr;
+class ReturnExpr;
+class SymbolExpr;
+class NumExpr;
+class BinaryOpExpr;
+class FunctionCallExpr;
+class FunctionDefnExpr;
+class MemberFunctionCallExpr;
+class AddExpr;
+
 
 //! Abstract interface for generating code
 class Generator
@@ -17,10 +29,15 @@ public:
 	virtual bool is_exportable_name(std::string const& name) const { return true; }
 
 	//! Export a symbol definition to the identifier 'name'
-	virtual void export_as(std::string const& name, Definition const&) = 0;
+    //! If name is empty, an anonymous temporary will be created
+    virtual void generate(FunctionDefnExpr const& expr) = 0;
 
-	//! Export a symbol DataDefinition to the identifier 'name'
-	virtual void export_as(std::string const& name, DataDefinition const&) = 0;
+    virtual void generate(Int32LiteralExpr const& expr) = 0;
+
+    virtual void generate(ReturnExpr const& expr) = 0;
+
+    // DELETE THIS LATER
+    virtual void generate(Expr const& expr) { /* not yet impl */}
 };
 
 //! Generalization of a Generator that writes using a unique_file (wrapper around C file)

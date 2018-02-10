@@ -19,7 +19,7 @@ enum TyObjectAttribute
 class TyObjectBase { };
 
 //! Object that all tylang objects must derive from
-template <uint64_t attributes>
+template <uint64_t attributes = 0>
 class TyObject : public TyObjectBase
 {
 public:
