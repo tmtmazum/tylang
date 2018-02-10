@@ -132,13 +132,42 @@ public:
 
 class FunctionCallExpr : public Expr
 {
+private:
+    std::string                         m_function_symbol;
+
+    std::vector<std::unique_ptr<Expr>>	m_arguments;
+
+public:
+    FunctionCallExpr(std::string func, decltype(m_arguments) arg)
+        : m_function_symbol{ std::move(func) }, m_arguments{ std::move(arg) }
+    {}
+
+    void generate(Generator& g) const override { return g.generate(*this); }
 
     void print(cct::unique_file& log_file, int level) const override
     {
-        log_file.printf("%*c functioncallexpr() \n", level, '-');
+        log_file.printf("%*c FunctionCallExpr(%s) \n", level, '-', m_function_symbol.c_str());
+        for (auto const& arg : m_arguments)
+        {
+            arg->print(log_file, level + 1);
+        }
     }
+};
+
+class IdExpr : public Expr
+{
 private:
-    std::vector<std::unique_ptr<Expr>>	m_arguments;
+    std::string         m_symbol;
+
+public:
+    explicit IdExpr(std::string sym) : m_symbol{ std::move(sym) } {}
+
+    void generate(Generator& g) const override { return g.generate(*this); }
+
+    void print(cct::unique_file& log_file, int level) const override
+    {
+        log_file.printf("%*c IdExpr(%s) \n", level, '-', m_symbol.c_str());
+    }
 };
 
 struct ParseContext;

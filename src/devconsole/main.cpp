@@ -14,14 +14,19 @@ void run_tests()
 {
     using namespace ty;
 
-    auto const ast = parse(tokenize("foo = @() -> {5125421}"));
+    auto const ast = parse(tokenize(R"(foo = @() -> {5125421}     
+
+    export(foo&)
+    export(goo, too, hello)
+    export(Foo(foo))
+)"));
     for (auto const& expr : ast.exprs)
     {
         expr->print(cct::unique_file{ stdout });
     }
 }
 
-int main(int argc, char** argv)
+int main(int argc, char** argv) try
 {
     cct::scoped_failure_handler{ [](char const* op)
     {
@@ -98,4 +103,12 @@ int main(int argc, char** argv)
     cct::println(R"(define i32 @five() { ret i32 5 })");
 
     return 0;
+}
+catch (ty::TokenException const&)
+{
+    return 1;
+}
+catch (ty::ParseException const&)
+{
+    return 1;
 }

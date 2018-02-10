@@ -23,14 +23,6 @@
 
 namespace ty
 {
-    struct TokenException : public std::exception
-    {
-
-        char const* what() const override
-        {
-            return "Token exception ";
-        }
-    };
 
     struct LexItem
     {
@@ -89,61 +81,97 @@ namespace ty
         auto& buffer() { return m_buffer; }
         auto const& buffer() const { return m_buffer; }
     };
+    
+    struct TokenException : public std::exception
+    {
+        TokenList   m_tokens;
+        char const* m_location;
+    public:
+        TokenException(TokenList tl, char const* location)
+            : m_tokens{ std::move(tl) }, m_location(location)
+        {}
+
+        char const* what() const override
+        {
+            return "Token exception ";
+        }
+    };
 
     inline TokenList tokenize(std::string s)
     {
-        if (!::isspace(s.back()))
+        try
         {
-            return tokenize(s + " ");
+            if (!::isspace(s.back()))
+            {
+                return tokenize(s + " ");
+            }
+
+            TokenList list{ std::move(s) };
+            for (auto it = list.buffer().begin(); it != list.buffer().end(); )
+            {
+                auto const insert_single_char_token = [&](auto token, auto& it)
+                {
+                    list.emplace_back(token, &*it, &*(it + 1)); it++;
+                };
+
+                switch (*it)
+                {
+                case '(': insert_single_char_token(LexItem::Type::PAREN_OPEN, it); continue;
+                case ')': list.emplace_back(LexItem::Type::PAREN_CLOSE, &*it, &*(it + 1)); it++;  continue;
+                case '{': list.emplace_back(LexItem::Type::BRACE_OPEN, &*it, &*(it + 1)); it++; continue;
+                case '}': list.emplace_back(LexItem::Type::BRACE_CLOSE, &*it, &*(it + 1)); it++;  continue;
+                case '=': list.emplace_back(LexItem::Type::DEFN, &*it, &*(it + 1)); it++; continue;
+                case ':': list.emplace_back(LexItem::Type::DECL, &*it, &*(it + 1)); it++; continue;
+                case '@': list.emplace_back(LexItem::Type::param, &*it, &*(it + 1)); it++; continue;
+                case '+': list.emplace_back(LexItem::Type::PLUS, &*it, &*(it + 1)); it++; continue;
+                case ',': list.emplace_back(LexItem::Type::COMMA, &*it, &*(it + 1)); it++; continue;
+                case '-':
+                {
+                    auto next = it + 1;
+                    if (next != list.buffer().end() && *next == '>')
+                    {
+                        list.emplace_back(LexItem::Type::ARROW, &*it, &*(next + 1));
+                        it = next + 1;
+                    }
+                    else
+                    {
+                        list.emplace_back(LexItem::Type::MINUS, &*it, &*(it + 1));
+                        it++;
+                    }
+                }
+                break;
+                }
+                if (::isdigit(*it))
+                {
+                    auto b = it;
+                    while (::isdigit(*it)) { it++; }
+                    list.emplace_back(LexItem::Type::NUM, &*b, &*it);
+                    continue;
+                }
+                else if (::isalpha(*it))
+                {
+                    auto b = it;
+                    while (::isalnum(*it)) { it++; }
+                    list.emplace_back(LexItem::Type::ID, &*b, &*it);
+                    continue;
+                }
+                else if (::isspace(*it)) { it++; }
+                else throw TokenException{std::move(list), &*it};
+            }
+            list.emplace_back(LexItem::Type::eof, "", "" + 1);
+            return list;
         }
-        
-        TokenList list{ std::move(s) };
-        for (auto it = list.buffer().begin(); it != list.buffer().end(); )
+        catch (TokenException const& t)
         {
-            switch (*it)
+            for (auto const& c : t.m_tokens.buffer())
             {
-            case '(': list.emplace_back(LexItem::Type::PAREN_OPEN, &*it, &*(it + 1)); it++;  continue;
-            case ')': list.emplace_back(LexItem::Type::PAREN_CLOSE, &*it, &*(it + 1)); it++;  continue;
-            case '{': list.emplace_back(LexItem::Type::BRACE_OPEN, &*it, &*(it + 1)); it++; continue;
-            case '}': list.emplace_back(LexItem::Type::BRACE_CLOSE, &*it, &*(it + 1)); it++;  continue;
-            case '=': list.emplace_back(LexItem::Type::DEFN, &*it, &*(it + 1)); it++; continue;
-            case ':': list.emplace_back(LexItem::Type::DECL, &*it, &*(it + 1)); it++; continue;
-            case '@': list.emplace_back(LexItem::Type::param, &*it, &*(it + 1)); it++; continue;
-            case '+': list.emplace_back(LexItem::Type::PLUS, &*it, &*(it + 1)); it++; continue;
-            case '-':
-            {
-                auto next = it + 1;
-                if (next != list.buffer().end() && *next == '>')
+                if (&c == t.m_location)
                 {
-                    list.emplace_back(LexItem::Type::ARROW, &*it, &*(next + 1));
-                    it = next + 1;
+                    fprintf(stderr, "%c <-- %s\n", c, "Unexpected token here -- compilation stopped");
                 }
-                else
-                {
-                    list.emplace_back(LexItem::Type::MINUS, &*it, &*(it + 1));
-                    it++;
-                }
+                else fputc(c, stderr);
             }
-            break;
-            }
-            if (::isdigit(*it))
-            {
-                auto b = it;
-                while (::isdigit(*it)) { it++; }
-                list.emplace_back(LexItem::Type::NUM, &*b, &*it);
-                continue;
-            }
-            else if (::isalpha(*it))
-            {
-                auto b = it;
-                while (::isalnum(*it)) { it++; }
-                list.emplace_back(LexItem::Type::ID, &*b, &*it);
-                continue;
-            }
-            else if (::isspace(*it)) { it++; }
-            else throw TokenException{};
+            throw;
         }
-        list.emplace_back(LexItem::Type::eof, "", "" + 1);
-        return list;
     }
 }

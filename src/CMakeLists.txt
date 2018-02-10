@@ -9,6 +9,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ../bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ../bin)
 
 include_directories(.)
+include_directories(../external)
 include_directories(../external/cppcoretools)
 
 # common
@@ -36,6 +37,17 @@ add_library(tycgen STATIC ${tycgen_src} ${tycgen_hdr})
 file(GLOB tyx_src ./devconsole/*.cpp)
 add_executable(tyx ${tyx_src})
 target_link_libraries(tyx tycommon typarse tycgen tytoken)
+
+# gtest
+file(GLOB gtest_src ./gtest/*.cc)
+file(GLOB gtest_hdr ./gtest/*.h)
+add_library(gtest STATIC ${gtest_src} ${gtest_hdr})
+
+# unit tests
+file(GLOB unit_tests_src ./unit_tests/*.cpp)
+add_executable(ty_unit_tests ${unit_tests_src})
+target_link_libraries(ty_unit_tests tycommon typarse tycgen tytoken gtest)
+target_include_directories(ty_unit_tests PRIVATE ../src/gtest)
 
 # Tests
 add_custom_target(all_tests ALL
