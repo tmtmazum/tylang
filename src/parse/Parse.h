@@ -216,17 +216,6 @@ inline auto parse(TokenList const& tlist)
     catch (ParseException const& e)
     {
         fprintf(stderr, "Fatal error during parse\n");
-        //for (auto it = tlist.begin(); it != tlist.end(); it++)
-        //{
-        //    if (e.m_position == it)
-        //    {
-        //        fprintf(stderr, "[%s]", it->as_lexeme().c_str());
-        //    }
-        //    else
-        //    {
-        //        fprintf(stderr, "%s ", it->as_lexeme().c_str());
-        //    }
-        //}
         fprintf(stderr, "'%s'\n", tlist.buffer().c_str());
         fputc(' ', stderr);
         for (auto const& c : tlist.buffer())
