@@ -15,3 +15,50 @@ The following is a compiler front-end project for a toy language. For simplicity
    - included as a submodule
    
 See Wiki for detailed description --> https://github.com/tmtmazum/tylang/wiki
+
+## Step-wise Compilation Commands
+
+### Tokenizer Step
+`tyx.exe tokenize "foo = @() -> { foo() + 5 }"`
+
+Outputs:
+```
+Tokenizing 'foo = @() -> {foo() + 5}'
+id 'foo'
+defn '='
+param '@'
+paren_open '('
+paren_close ')'
+arrow '->'
+brace_open '{'
+id 'foo'
+paren_open '('
+paren_close ')'
+plus '+'
+num '5'
+brace_close '}'
+eof '
+```
+
+### Parser Step
+`tyx.exe parse "foo = @() -> { foo() + 5 }"`
+
+Outputs
+```
+- FunctionDefnExpr() 
+ - ReturnExpr 
+  - BinaryOpExpr(+)  
+   - FunctionCallExpr(foo) 
+   - Int32LiteralExpr(5) 
+exported symbols: (none)
+```
+
+### LLVM-IR Generation Step
+`tyx.exe emit_llvm  "export(foo)    foo = @() -> { 5 }"`
+
+Outputs:
+```
+define i32 @foo() {
+ret i32 5
+}
+```
