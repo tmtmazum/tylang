@@ -4,55 +4,13 @@
 #include "parse/Expr.h"
 #include "SymbolTable.h"
 #include "common/CompileInfo.h"
+#include "ParseException.h"
 #include <string>
 #include <utility>
 #include <iterator>
 
 namespace ty
 {
-
-using ParseIndex = TokenList::const_iterator;
-
-template <typename T>
-using Parsed = std::pair<std::unique_ptr<T>, ParseIndex>;
-
-template <typename T>
-using ParsedList = std::pair<std::vector<std::unique_ptr<T>>, ParseIndex>;
-
-template <typename T, typename... Args>
-auto make_parsed(ParseIndex next, Args&&... args)
-{
-    return std::make_pair(std::make_unique<T>(std::forward<Args>(args)...), next);
-}
-
-template <typename T, typename... Args>
-auto make_parsed_list(ParseIndex next, Args&&... args)
-{
-    return std::pair<std::vector<std::unique_ptr<T>>, ParseIndex>{std::forward<Args>(args)..., next};
-}
-
-
-class ParseException : public std::exception {
-public:
-    ParseException(ParseIndex position, CompileError error, std::string msg)
-        : m_position {position}
-        , m_error_id{error}
-        , m_message{std::move(msg)}
-    {
-    }
-
-    virtual char const* what() const { return ""; }
-
-    ParseIndex      m_position;
-    CompileError    m_error_id;
-    std::string	    m_message;
-};
-
-inline auto make_unexpected_end_of_file(ParseIndex it, std::string operation)
-{
-    return ParseException{ it, CompileError::unexpected_end_of_file,
-        std::string{"Encountered premature end-of-file while parsing \'"} + operation + "\'" };
-}
 
 inline ParsedList<FunctionArgDeclExpr> parse_argument_decls(ParseIndex it_begin)
 {
@@ -74,31 +32,27 @@ inline ParsedList<FunctionArgDeclExpr> parse_argument_decls(ParseIndex it_begin)
     return make_parsed_list<FunctionArgDeclExpr>(it, std::move(arg_decl));
 }
 
-inline Parsed<ReturnExpr> parse_return_expr(ParseIndex it_begin)
-{
-
-    for (auto it = it_begin; ; it++)
-    {
-        if (it->type == LexItem::Type::NUM)
-        {
-            auto s = std::make_unique<Int32LiteralExpr>(it->as_lexeme());
-            it++;
-            if (it->type != LexItem::Type::BRACE_CLOSE)
-            {
-                throw ParseException(it, CompileError::unexpected_token, "Expected }");
-            }
-            return make_parsed<ReturnExpr>(it + 1, std::move(s));
-        }
-    }
-    return make_parsed<ReturnExpr>(it_begin, nullptr);
-}
-
 struct ParseContext
 {
     ParseIndex                          begin;
     ParseIndex                          end;
     SymbolTable                         symbols;
     ExprList                            exprs;
+    std::vector<std::string>            export_list;
+
+    void print(cct::unique_file& out) const
+    {
+        for (auto const& expr : exprs)
+        {
+            expr->print(out);
+        }
+
+        out.printf("exported symbols: ");
+        for (auto const& exp : export_list)
+        {
+            out.printf("%s, ", exp.c_str());
+        }
+    }
 
     template <typename ExitPredicate>
     static ParseContext parse_statements(ParseIndex it_begin, ExitPredicate finished)
@@ -125,17 +79,29 @@ struct ParseContext
             else if (it->type == LexItem::Type::PAREN_OPEN)
             {
                 auto const prev = it - 1;
-                if (prev->type != LexItem::Type::ID)
+                if (prev->type == LexItem::Type::ID)
+                {
+                    auto expr = ctx.parse_function_call(std::string{ prev->begin, prev->end }, it + 1);
+                    ctx.exprs.emplace_back(std::move(expr.first));
+                    it = expr.second;
+                }
+                else
                 {
                     throw ParseException(prev, CompileError::unexpected_token, "Expected ID before '(' token");
                 }
-                auto expr = ctx.parse_function_call(std::string{ prev->begin, prev->end }, it + 1);
-                ctx.exprs.emplace_back(std::move(expr.first));
-                it = expr.second;
             }
             else if(it->type == LexItem::Type::ID)
             {
                 it++;
+            }
+            else if (it->type == LexItem::Type::EXPORT)
+            {
+                auto next = it + 1;
+                if (next->type != LexItem::Type::PAREN_OPEN)
+                {
+                    throw ParseException(next, CompileError::unexpected_token, "Expected ( after export");
+                }
+                it = ctx.parse_exports(next + 1, std::back_inserter(ctx.export_list));
             }
             else
             {
@@ -144,6 +110,41 @@ struct ParseContext
         }
         ctx.end = it + 1;
         return ctx;
+    }
+
+    template <typename StringInserter>
+    auto parse_exports(ParseIndex it_begin, StringInserter insert)
+    {
+        auto it = it_begin;
+            
+        while (1)
+        {
+            if (it->type == LexItem::Type::eof)
+            {
+                throw make_unexpected_end_of_file(it, "function call");
+            }
+            else if (it->type == LexItem::Type::ID)
+            {
+                insert = std::string{ it->begin, it->end };
+                it = it + 1;
+                if (it->type == LexItem::Type::COMMA)
+                {
+                    it = it + 1;
+                }
+                else if (it->type == LexItem::Type::PAREN_CLOSE)
+                {
+                    return (it = it + 1);
+                }
+                else
+                {
+                    throw ParseException(it, CompileError::unexpected_token, "Unexpected token during parsing exports");
+                }
+            }
+            else
+            {
+                throw ParseException(it, CompileError::unexpected_token, "Unexpected token during parsing exports");
+            }
+        }
     }
 
     template <typename ExitPredicate>
@@ -192,11 +193,11 @@ struct ParseContext
                 switch ((it + 1)->type)
                 {
                 case LexItem::Type::COMMA:
-                    arguments.emplace_back(std::make_unique<Int32LiteralExpr>((it + 1)->as_lexeme()));
+                    arguments.emplace_back(std::make_unique<Int32LiteralExpr>(it->as_lexeme()));
                     it = it + 2;
                     break;
                 case LexItem::Type::PAREN_CLOSE:
-                    arguments.emplace_back(std::make_unique<Int32LiteralExpr>((it + 1)->as_lexeme()));
+                    arguments.emplace_back(std::make_unique<Int32LiteralExpr>(it->as_lexeme()));
                     return make_parsed<FunctionCallExpr>(it + 2, function_symbol, std::move(arguments));
                 default:
                     throw ParseException(it, CompileError::unexpected_token, "Unexpected token during parse_function_call");
@@ -214,7 +215,55 @@ struct ParseContext
         throw ParseException(it, CompileError::unexpected_token, "Unexpected token while parsing function call");
     }
 
-    inline Parsed<Expr> parse_function(ParseIndex it_begin)
+    //  30          OK - Int32LiteralExpr
+    //  foo(30)     OK - FunctionCallExpr
+    //  foo(2) + foo(2) OK - 
+    inline Parsed<Expr> parse_until_brace(ParseIndex it_begin)
+    {
+        ParsedList<Expr> list;
+        auto it = it_begin;
+        auto next = it_begin + 1;
+        while (!it->is(LexItem::Type::eof))
+        {
+            if(it->is(LexItem::Type::NUM))
+            {
+                std::tie(std::back_inserter(list.first), it) = make_parsed<Int32LiteralExpr>(it + 1, it->as_lexeme());
+            }
+            else if (it->is(LexItem::Type::ID) && next->is(LexItem::Type::PAREN_OPEN))
+            {
+                std::tie(std::back_inserter(list.first), it) = parse_function_call(it->as_lexeme(), next + 1);
+            }
+            else if (it->is(LexItem::Type::PLUS))
+            {
+                if (list.first.empty())
+                {
+                    throw ParseException(it, CompileError::unexpected_token, "Expected operands before + operator");
+                }
+                else if (list.first.size() != 1)
+                {
+                    throw ParseException(it - 1, CompileError::unexpected_token, "Expected exactly one operand before + operator");
+                }
+                auto rhs = parse_until_brace(it + 1);
+                return make_parsed<BinaryOpExpr>(rhs.second, std::move(list.first.front()), std::move(rhs.first));
+            }
+            else if (it->is(LexItem::Type::BRACE_CLOSE))
+            {
+                it = it + 1;
+                break;
+            }
+            else
+            {
+                throw ParseException(it, CompileError::unexpected_token, "Unexpected symbol while parsing return expression");
+            }
+        }
+        if (list.first.size() == 1)
+        {
+            return Parsed<Expr>{std::move(list.first.front()), it};
+        }
+        throw ParseException(it_begin, CompileError::unexpected_token, "Unexpected symbol while parsing return expression");
+    }
+
+    inline Parsed<FunctionDefnExpr> parse_function(std::string name, ParseIndex it_begin)
     {
         std::vector<std::unique_ptr<FunctionArgDeclExpr>> argument_decls;
         std::unique_ptr<ParseContext> body;
@@ -256,11 +305,14 @@ struct ParseContext
                 {
                     body = std::make_unique<ParseContext>();
 
-                    auto r = parse_return_expr(it + 1);
-                    returns.emplace_back(r.first.get());
-                    body->exprs.emplace_back(std::move(r.first));
+                    auto r = parse_until_brace(it + 1);
+                    if (auto Ret = std::make_unique<ReturnExpr>(std::move(r.first)))
+                    {
+                        returns.emplace_back(Ret.get());
+                        body->exprs.emplace_back(std::move(Ret));
+                    }
                     it = r.second;
-                    return make_parsed<FunctionDefnExpr>(it, std::move(argument_decls), std::move(body), std::move(returns));
+                    return make_parsed<FunctionDefnExpr>(it, std::move(name), std::move(argument_decls), std::move(body), std::move(returns));
                 }
                 else
                 {
@@ -269,7 +321,7 @@ struct ParseContext
                     {
                         body = std::make_unique<ParseContext>(parse_statements_local(it, [](ParseIndex i) { return i->type != LexItem::Type::BRACE_CLOSE; }));
                         stmts = body->end;
-                        return make_parsed<FunctionDefnExpr>(it, std::move(argument_decls), std::move(body), std::move(returns));
+                        return make_parsed<FunctionDefnExpr>(it, std::move(name), std::move(argument_decls), std::move(body), std::move(returns));
                     }
                 }
             }
@@ -280,11 +332,11 @@ struct ParseContext
         }
     }
 
-    inline Parsed<Expr> parse_definition(std::string name, ParseIndex it)
+    inline Parsed<DefnExpr> parse_definition(std::string name, ParseIndex it)
     {
         if (it->type == LexItem::Type::param)
         {
-            return parse_function(it);
+            return parse_function(std::move(name), it);
         }
         throw ParseException(it, CompileError::unsupported_feature, "Expected function definition");
     }

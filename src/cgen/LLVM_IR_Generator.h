@@ -15,11 +15,11 @@ public:
 	template <typename... Args>
 	explicit LLVM_IR_Generator(Args&&... args) : FileGenerator(std::forward<Args>(args)...) {}
 
-    virtual void generate(FunctionDefnExpr const& expr) override;
+    virtual std::string generate(FunctionDefnExpr const& expr) override;
     
-    virtual void generate(Int32LiteralExpr const& expr) override;
+    virtual std::string generate(Int32LiteralExpr const& expr) override;
 
-    virtual void generate(ReturnExpr const& expr) override;
+    virtual std::string generate(ReturnExpr const& expr) override;
 
 private:
     void begin_function() { m_temp_no = 1; }

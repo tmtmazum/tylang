@@ -23,7 +23,7 @@ public: // member virtual
 	//! \pre	'name' must not already be in the SymbolTable
 	void add_expr(std::string name, Expr* expr)
 	{
-		CCT_CHECK(expr_at(name) == nullptr);
+		TY_ASSERTF(expr_at(name) == nullptr, "name:%s", name.c_str());
 		
 		using pair_t = std::decay_t<decltype(m_definitions)::value_type>;
 

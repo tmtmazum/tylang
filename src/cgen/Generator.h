@@ -30,14 +30,14 @@ public:
 
 	//! Export a symbol definition to the identifier 'name'
     //! If name is empty, an anonymous temporary will be created
-    virtual void generate(FunctionDefnExpr const& expr) = 0;
+    virtual std::string generate(FunctionDefnExpr const& expr) = 0;
 
-    virtual void generate(Int32LiteralExpr const& expr) = 0;
+    virtual std::string generate(Int32LiteralExpr const& expr) = 0;
 
-    virtual void generate(ReturnExpr const& expr) = 0;
+    virtual std::string generate(ReturnExpr const& expr) = 0;
 
     // DELETE THIS LATER
-    virtual void generate(Expr const& expr) { /* not yet impl */}
+    virtual std::string generate(Expr const& expr) { return "??"; /* not yet impl */ }
 };
 
 //! Generalization of a Generator that writes using a unique_file (wrapper around C file)

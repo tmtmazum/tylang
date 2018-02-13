@@ -4,20 +4,34 @@
 #include <memory>
 #include <parse/Type.h>
 #include <cgen/Generator.h>
+#include "common/CompileInfo.h"
+#include "ParseException.h"
 #include <cppcoretools/print.h>
 
 namespace ty
 {
 
+class LogicalException : public std::exception {
+public:
+
+    virtual char const* what() const { return ""; }
+
+    CompileError    m_error_id;
+    std::string	    m_message;
+
+    LogicalException(CompileError error, std::string msg)
+        : m_error_id{error}
+        , m_message{std::move(msg)}
+    {}
+};
+
 class Expr
 {
 public:
-    explicit Expr(std::string id = "") : m_id{ std::move(id) } {}
-
     virtual bool can_evaluate_at_compiletime() const noexcept { return false; }
 
     //! generates the associated code for the expression and returns a variable that holds the result
-    virtual void generate(Generator&) const = 0;
+    virtual std::string generate(Generator&) const = 0;
 
     virtual void print(cct::unique_file& log_file, int level = 1) const = 0;
 
@@ -27,8 +41,16 @@ public:
 
     virtual Type const* specified_type() const noexcept { return m_specified_type.get(); }
 
-    auto const& id() const noexcept { return m_id; }
-
+    virtual Type const* resolved_type() const
+    {
+        auto inferred = inferred_type();
+        auto specified = specified_type();
+        if (inferred && specified && *inferred != *specified)
+        {
+            throw LogicalException(CompileError::deduced_type_mismatch, "");
+        }
+        return specified ? specified : inferred;
+    }
 
 protected:
     
@@ -51,30 +73,49 @@ public:
         m_inferred_type = std::make_unique<Int32Type>();
     }
 
-    void generate(Generator& g) const override { return g.generate(*this); }
+    std::string generate(Generator& g) const override { return g.generate(*this); }
 
     void print(cct::unique_file& log_file, int level) const override
     {
         log_file.printf("%*c Int32LiteralExpr(%s) \n", level, '-', m_expr.c_str());
     }
 
+    auto const& value_as_string() const { return m_expr; }
+
 private:
     std::string		m_expr;
 };
 
-class ReturnExpr : public Expr
+//! An expression that evaluates to a single value
+class SingleExpr : public Expr
+{
+    auto const* child() const { return m_sub_expr.get(); }
+
+private:
+    std::unique_ptr<Expr>   m_sub_expr;
+
+};
+
+class ReturnExpr : public SingleExpr
 {
 public:
     explicit ReturnExpr(std::unique_ptr<Expr> expr)
         : m_sub_expr{ std::move(expr) } {}
 
-    void generate(Generator& g) const override { return g.generate(*this); }
+    std::string generate(Generator& g) const override { return g.generate(*this); }
+
+    Type const* inferred_type() const noexcept override { return m_sub_expr->inferred_type(); }
 
     void print(cct::unique_file& log_file, int level) const override
     {
         log_file.printf("%*c ReturnExpr \n", level, '-');
         m_sub_expr->print(log_file, level + 1);
     }
+
+    auto const* child() const { return m_sub_expr.get(); }
+
+    auto * child() { return m_sub_expr.get(); }
+
 private:
     std::unique_ptr<Expr>   m_sub_expr;
 };
@@ -89,11 +130,18 @@ class SymbolExpr : public Expr
 
 class BinaryOpExpr : public Expr
 {
+public:
+    BinaryOpExpr(std::unique_ptr<Expr> exprL, std::unique_ptr<Expr> exprR)
+        : m_left{ std::move(exprL) }, m_right{ std::move(exprR) }
+    {}
+
     bool can_evaluate_at_compiletime() const noexcept 
     { 
         return m_left->can_evaluate_at_compiletime()
             && m_right->can_evaluate_at_compiletime(); 
     }
+
+    std::string generate(Generator& g) const override { return g.generate(*this); }
 
     Type const* inferred_type() const noexcept override 
     {
@@ -122,7 +170,7 @@ class FunctionArgDeclExpr : public Expr
 public:
     FunctionArgDeclExpr() = default;
 
-    void generate(Generator& g) const override { return g.generate(*this); }
+    std::string generate(Generator& g) const override { return g.generate(*this); }
     
     void print(cct::unique_file& log_file, int level) const override
     {
@@ -132,17 +180,16 @@ public:
 
 class FunctionCallExpr : public Expr
 {
-private:
+public:
     std::string                         m_function_symbol;
 
     std::vector<std::unique_ptr<Expr>>	m_arguments;
 
-public:
     FunctionCallExpr(std::string func, decltype(m_arguments) arg)
         : m_function_symbol{ std::move(func) }, m_arguments{ std::move(arg) }
     {}
 
-    void generate(Generator& g) const override { return g.generate(*this); }
+    std::string generate(Generator& g) const override { return g.generate(*this); }
 
     void print(cct::unique_file& log_file, int level) const override
     {
@@ -162,7 +209,7 @@ private:
 public:
     explicit IdExpr(std::string sym) : m_symbol{ std::move(sym) } {}
 
-    void generate(Generator& g) const override { return g.generate(*this); }
+    std::string generate(Generator& g) const override { return g.generate(*this); }
 
     void print(cct::unique_file& log_file, int level) const override
     {
@@ -172,23 +219,39 @@ public:
 
 struct ParseContext;
 
-class FunctionDefnExpr : public Expr
+class DefnExpr : public Expr
+{
+    std::string m_id;
+public:
+    explicit DefnExpr(std::string id) : m_id{ std::move(id) } {}
+
+    std::string const& id() const { return m_id; }
+};
+
+class FunctionDefnExpr : public DefnExpr
 {
 public:
-
     std::vector<std::unique_ptr<FunctionArgDeclExpr>>	m_arguments;
     std::unique_ptr<ParseContext> m_body;
 
     // ! Non-owning pointers to return expressions inside of m_body
     std::vector<ReturnExpr*>                  m_returns;
 
-    FunctionDefnExpr(decltype(m_arguments) args, decltype(m_body) body, decltype(m_returns) returns)
-        : m_arguments{std::move(args)}, m_body{std::move(body)}, m_returns{std::move(returns)}
+    FunctionDefnExpr(std::string name, decltype(m_arguments) args, decltype(m_body) body, decltype(m_returns) returns)
+        : DefnExpr{std::move(name)}
+        , m_arguments { std::move(args)}
+        , m_body{ std::move(body) }
+        , m_returns{ std::move(returns) }
     {}
 
+    Type const* inferred_type() const noexcept override { 
+    // CHECK HERE THAT ALL RETURN TYPES ARE EQUIVALENT
+        return m_returns.front()->inferred_type(); 
+    }
+    
     void print(cct::unique_file& log_file, int level) const override;
 
-    void generate(Generator& g) const override { return g.generate(*this); }
+    std::string generate(Generator& g) const override { return g.generate(*this); }
 };
 
 

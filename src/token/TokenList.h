@@ -26,7 +26,7 @@ namespace ty
 
     struct LexItem
     {
-        enum class Type { UNKNOWN, BRACE_OPEN, COMMA, BRACE_CLOSE, PAREN_OPEN, PAREN_CLOSE, ID, DEFN, DECL, NUM, param, PLUS, MINUS, ARROW, eof };
+        enum class Type { UNKNOWN, BRACE_OPEN, COMMA, BRACE_CLOSE, PAREN_OPEN, PAREN_CLOSE, ID, DEFN, DECL, NUM, param, PLUS, MINUS, ARROW, EXPORT, eof };
 
         Type		type;
         char const* begin;
@@ -52,11 +52,18 @@ namespace ty
             case Type::ARROW: return "arrow";
             case Type::NUM: return "num";
             case Type::COMMA: return "comma";
+            case Type::EXPORT: return "export";
             case Type::eof: return "eof";
             default:
             case Type::UNKNOWN: return "unknown";
             }
         }
+
+        bool operator==(Type t) const { return type == t; }
+
+        bool is(Type t) const { return type == t; }
+        
+        bool is_either(Type t0, Type t1) const { return type == t0 || type == t1; }
 
         auto as_string() const
         {
@@ -96,6 +103,15 @@ namespace ty
             return "Token exception ";
         }
     };
+
+    inline auto special_id(char const* lex)
+    {
+        if (::strncmp("export", lex, std::size("export")-1) == 0)
+        {
+            return LexItem::Type::EXPORT;
+        }
+        return LexItem::Type::ID;
+    }
 
     inline TokenList tokenize(std::string s)
     {
@@ -152,7 +168,7 @@ namespace ty
                 {
                     auto b = it;
                     while (::isalnum(*it)) { it++; }
-                    list.emplace_back(LexItem::Type::ID, &*b, &*it);
+                    list.emplace_back(special_id(&*b), &*b, &*it);
                     continue;
                 }
                 else if (::isspace(*it)) { it++; }

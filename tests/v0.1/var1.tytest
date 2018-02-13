@@ -1,23 +1,36 @@
 <tytest>
 
 <sample>
-	x = {5}
+	five = @() -> {5}
+	export(five)
 </sample>
 
 <expected>
-	int x = 5;
+	extern "C" int five() { return 5; }	
+	extern "C" int twentyfive() { return five()*five(); }	
+	extern "C" int fivefive() { return five(); }	
+	extern "C" int six() { return five() + 1; }	
+	extern "C" int ten() { return five() + five(); }	
+
 </expected>
 
 <checker>
 	#include &lt;cstdio&gt;
 
-	extern int x;
+	extern "C" int five();
+	extern "C" int fivefive();
+	extern "C" int six();
+	extern "C" int ten();
 
 	int main()
 	{
-		putchar(x == 5 ? '0' : '1');
+		putchar(five() + '0');
+//		putchar(fivefive() + '0');
+//		putchar(six() + '0');
+//		putchar(ten() + '0');
 		return 0;
 	}
 </checker>
 
 </tytest>
+
