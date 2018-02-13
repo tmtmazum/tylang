@@ -357,10 +357,9 @@ inline auto parse(TokenList const& tlist)
     catch (ParseException const& e)
     {
         fprintf(stderr, "Fatal error during parse\n");
-        fprintf(stderr, "'%s'\n", tlist.buffer().c_str());
+        //fprintf(stderr, "'%s'\n", tlist.buffer().c_str());
         fputc(' ', stderr);
         bool found = false;
-        auto* begin = &tlist.buffer().front();
         for (auto const& c : tlist.buffer())
         {
             if (&c >= e.m_position->begin && &c < e.m_position->end)

@@ -10,71 +10,18 @@ public:
     char const* what() const override { return "Undefined symbol during compilation"; }
 };
 
-int main(int argc, char** argv) try
+enum ReturnCode { SUCCESS, BAD_PARAMETERS = -1, COMPILE_ERROR = 1 };
+
+int emit_llvm_from_file(cct::unique_file in)
 {
-    cct::scoped_failure_handler{ [](char const* op)
-    {
-        fprintf(stderr, "Operation '%s' failed\n", op);
-    } };
-
-    TY_ASSERTF(argc >= 2, "argc: %d", argc);
-
-    if (argc == 3)
-    {
-        if (std::string("tokenize") == argv[1])
-        {
-            auto list = ty::tokenize(argv[2]);
-            cct::println("Tokenizing '%s'", argv[2]);
-            for (auto const& token : list)
-            {
-                cct::println("%s", token.as_string().c_str());
-            }
-            return 0;
-        }
-        if (std::string("parse") == argv[1])
-        {
-            auto const ast = ty::parse(ty::tokenize(argv[2]));
-            ast.print(cct::unique_file{ stdout });
-            return 0;
-        }
-        if (std::string("emit_llvm") == argv[1])
-        {
-            ty::LLVM_IR_Generator g{ cct::unique_file{stdout} };
-            auto const ast = ty::parse(ty::tokenize(argv[2]));
-            for (auto const& export_id : ast.export_list)
-            {
-                if (auto const* expr = ast.symbols.expr_at(export_id))
-                {
-                    expr->generate(g);
-                }
-                else
-                {
-                    fprintf(stderr, "Cannot find symbol '%s' for export", export_id.c_str());
-                }
-            }
-            return 0;
-        }
-    }
-
     using namespace ty;
 
-    auto in = cct::make_unique_file(argv[1], "r");
-    if (in.error_code())
-    {
-        fprintf(stderr, "failed to open input file: '%s', '%s'", argv[1], in.error_code().message().c_str());
-        __debugbreak();
-    }
-
     std::string text;
-    for (char c = in->getc(); c != EOF && !in->eof(); c = in->getc())
+    for (char c = in.getc(); c != EOF && !in.eof(); c = in.getc())
     {
         text += c;
     }
     auto list = tokenize(text);
-
-
-    //	cct::println("@x = global i32 5, align 4");
-
     auto ast = parse(list);
     ty::LLVM_IR_Generator g{ cct::unique_file{stdout} };
     for (auto const& export_id : ast.export_list)
@@ -86,27 +33,77 @@ int main(int argc, char** argv) try
         else
         {
             fprintf(stderr, "Cannot find symbol '%s' for export", export_id.c_str());
+            return COMPILE_ERROR;
         }
     }
+    return SUCCESS;
+}
 
-    //Global<SymbolTable>().add<Int32LiteralExpr>("x", "5");
-    //Global<ExportList>().emplace_back("x");
+int emit_llvm_from_file(cct::path path_in)
+{
+    auto in = cct::make_unique_file(path_in, "r");
+    if (in.error_code())
+    {
+        fprintf(stderr, "failed to open input file: '%s', '%s'", path_in.c_str(), in.error_code().message().c_str());
+        __debugbreak();
+        return BAD_PARAMETERS;
+    }
 
-    //LLVM_IR_Generator g{ cct::unique_file{stdout} };
-    //for (auto const& export_id : Global<ExportList>())
-    //{
-    //    if (auto const* defn = Global<SymbolTable>().expr_at(export_id))
-    //    {
-    //        defn->generate(g);
-    //    }
-    //    else
-    //    {
-    //        throw UndefinedSymbolException{};
-    //    }
-    //}
-    //cct::println(R"(define i32 @five() { ret i32 5 })");
+    return emit_llvm_from_file(std::move(in.value()));
+}
 
-    return 0;
+int main(int argc, char** argv) try
+{
+    cct::scoped_failure_handler{ [](char const* op)
+    {
+        fprintf(stderr, "Operation '%s' failed\n", op);
+    } };
+
+    TY_ASSERTF(argc >= 2, "argc: %d", argc);
+
+    if (std::string("tokenize") == argv[1])
+    {
+        auto list = ty::tokenize(argv[2]);
+        cct::println("Tokenizing '%s'", argv[2]);
+        for (auto const& token : list)
+        {
+            cct::println("%s", token.as_string().c_str());
+        }
+        return 0;
+    }
+    if (std::string("parse") == argv[1])
+    {
+        auto const ast = ty::parse(ty::tokenize(argv[2]));
+        ast.print(cct::unique_file{ stdout });
+        return 0;
+    }
+    if (std::string("emit_llvm") == argv[1])
+    {
+        ty::LLVM_IR_Generator g{ cct::unique_file{stdout} };
+        auto const ast = ty::parse(ty::tokenize(argv[2]));
+        for (auto const& export_id : ast.export_list)
+        {
+            if (auto const* expr = ast.symbols.expr_at(export_id))
+            {
+                expr->generate(g);
+            }
+            else
+            {
+                fprintf(stderr, "Cannot find symbol '%s' for export", export_id.c_str());
+            }
+        }
+        return 0;
+    }
+    if (std::string("-i") == argv[1])
+    {
+        return emit_llvm_from_file(argv[2]);
+    }
+    if (std::string("--stdin") == argv[1])
+    {
+        return emit_llvm_from_file(cct::unique_file{ stdin });
+    }
+
+    return emit_llvm_from_file(argv[1]);
 }
 catch (ty::TokenException const&)
 {
