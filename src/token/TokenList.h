@@ -1,8 +1,9 @@
 #pragma once
+
 #include <vector>
 #include <string>
 #include <cctype>
-
+#include <memory>
 /*! 
  *-- Example Input ---
  *   id = @(a:int)->{a}
@@ -65,28 +66,31 @@ namespace ty
         
         bool is_either(Type t0, Type t1) const { return type == t0 || type == t1; }
 
-        auto as_string() const
-        {
-            return std::string{ as_string(type) } + " \'" + std::string{ begin, end } + "\'";
-        }
-
         auto as_lexeme() const
         {
-            return std::string{ begin, end };
+            return std::string{ begin, static_cast<size_t>(end - begin) };
+        }
+
+        auto as_string() const
+        {
+            return std::string{ as_string(type) } + " \'" + as_lexeme() + "\'";
         }
     };
 
     class TokenList : public std::vector<LexItem> 
     {
-        std::string m_buffer;
+        // Wrapping a std::string with a std::unique_ptr ensures
+        // that pointers into the string will never be invalidated
+        // after the ptr is moved from
+        std::unique_ptr<std::string> m_buffer;
 
     public:
-        TokenList(std::string data) : 
+        TokenList(decltype(m_buffer) data) : 
             std::vector<LexItem>{}, m_buffer{ std::move(data) } 
         {}
 
-        auto& buffer() { return m_buffer; }
-        auto const& buffer() const { return m_buffer; }
+        auto& buffer() { return *m_buffer; }
+        auto const& buffer() const { return *m_buffer; }
     };
     
     struct TokenException : public std::exception
@@ -122,7 +126,7 @@ namespace ty
                 return tokenize(s + " ");
             }
 
-            TokenList list{ std::move(s) };
+            TokenList list{ std::make_unique<std::string>(std::move(s)) };
             for (auto it = list.buffer().begin(); it != list.buffer().end(); )
             {
                 auto const insert_single_char_token = [&](auto token, auto& it)
