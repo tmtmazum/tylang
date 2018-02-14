@@ -74,29 +74,29 @@ TEST(parse, nested_function_calls)
     EXPECT_TRUE(!!ast.symbols.expr_at("foo2"));
     EXPECT_TRUE(!!ast.symbols.expr_at("foo3"));
 }
-
-TEST(parse, func_returning_int)
-{
-    using namespace ty;
-
-    auto ast = parse(tokenize(R"(
-        five = @() -> { square(2) }
-)"));
-    ast.print(cct::unique_file{ stdout });
-
-    ASSERT_TRUE(!!ast.symbols.expr_at("five"));
-    auto a = ast.symbols.expr_at("five");
-    auto as_func_def = dynamic_cast<FunctionDefnExpr*>(a);
-    ASSERT_TRUE(!!as_func_def);
-    ASSERT_EQ(1, as_func_def->m_returns.size());
-    auto as_func_call = dynamic_cast<FunctionCallExpr*>(as_func_def->m_returns.front()->child());
-    ASSERT_TRUE(!!as_func_call);
-    EXPECT_EQ(1, as_func_call->m_arguments.size());
-    auto as_int = dynamic_cast<Int32LiteralExpr*>(as_func_call->m_arguments.front().get());
-    ASSERT_TRUE(!!as_int);
-    EXPECT_STREQ("2", as_int->value_as_string().c_str());
-}
-
+//
+//TEST(parse, func_returning_int)
+//{
+//    using namespace ty;
+//
+//    auto ast = parse(tokenize(R"(
+//        five = @() -> { square(2) }
+//)"));
+//    ast.print(cct::unique_file{ stdout });
+//
+//    ASSERT_TRUE(!!ast.symbols.expr_at("five"));
+//    auto a = ast.symbols.expr_at("five");
+//    auto as_func_def = dynamic_cast<FunctionDefnExpr*>(a);
+//    ASSERT_TRUE(!!as_func_def);
+//    ASSERT_EQ(1, as_func_def->m_returns.size());
+//    auto as_func_call = dynamic_cast<FunctionCallExpr*>(as_func_def->m_returns.front()->child());
+//    ASSERT_TRUE(!!as_func_call);
+//    EXPECT_EQ(1, as_func_call->m_arguments.size());
+//    auto as_int = dynamic_cast<Int32LiteralExpr*>(as_func_call->m_arguments.front().get());
+//    ASSERT_TRUE(!!as_int);
+//    EXPECT_STREQ("2", as_int->value_as_string().c_str());
+//}
+//
 TEST(generate, foo1)
 {
     using namespace ty;
@@ -118,6 +118,31 @@ TEST(generate, foo1)
         }
     }
 }
+
+TEST(generate, foo2)
+{
+    using namespace ty;
+
+    auto ast = parse(tokenize(R"(
+    export(foo, goo)
+        foo = @() -> {5} 
+        goo = @() -> { 5 + 5 }
+    )"));
+
+    ty::LLVM_IR_Generator g{ cct::unique_file{stdout} };
+    for (auto const& export_id : ast.export_list)
+    {
+        if (auto const* expr = ast.symbols.expr_at(export_id))
+        {
+            expr->generate(g);
+        }
+        else
+        {
+            fprintf(stderr, "Cannot find symbol '%s' for export", export_id.c_str());
+        }
+    }
+}
+
 
 TEST(parse, t0)
 {

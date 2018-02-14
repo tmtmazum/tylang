@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/CompileInfo.h"
 #include <cppcoretools/print.h>
 
 namespace ty
@@ -36,8 +37,10 @@ public:
 
     virtual std::string generate(ReturnExpr const& expr) = 0;
 
+    virtual std::string generate(BinaryOpExpr const& expr) = 0;
+
     // DELETE THIS LATER
-    virtual std::string generate(Expr const& expr) { return "??"; /* not yet impl */ }
+    virtual std::string generate(Expr const& expr) { throw NOT_YET_IMPLEMENTED(); }
 };
 
 //! Generalization of a Generator that writes using a unique_file (wrapper around C file)

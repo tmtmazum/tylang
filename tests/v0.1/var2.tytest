@@ -1,0 +1,29 @@
+<tytest>
+
+<sample>
+	five_plus_five = @() -> {5 + 5}
+    fifteen = @() -> { 1 + 2 + 3 + 4 + 5 }
+    export(five_plus_five, fifteen)
+</sample>
+
+<expected>
+	extern "C" int five_plus_five() { return 5 + 5; }	
+	extern "C" int fifteen() { return 1 + 2 + 3 + 4 + 5; }	
+</expected>
+
+<checker>
+	#include &lt;cstdio&gt;
+
+	extern "C" int five_plus_five();
+	extern "C" int fifteen();
+
+	int main()
+	{
+		putchar(five_plus_five() + '0');
+        putchar(fifteen());
+        return 0;
+	}
+</checker>
+
+</tytest>
+

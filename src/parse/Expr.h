@@ -131,8 +131,10 @@ class SymbolExpr : public Expr
 class BinaryOpExpr : public Expr
 {
 public:
-    BinaryOpExpr(std::unique_ptr<Expr> exprL, std::unique_ptr<Expr> exprR)
-        : m_left{ std::move(exprL) }, m_right{ std::move(exprR) }
+    BinaryOpExpr(std::unique_ptr<Expr> exprL, std::string operation_name, std::unique_ptr<Expr> exprR)
+        : m_left{ std::move(exprL) }
+        , m_op{ std::move(operation_name) }
+        , m_right {std::move(exprR)}
     {}
 
     bool can_evaluate_at_compiletime() const noexcept 
@@ -155,12 +157,12 @@ public:
 
     void print(cct::unique_file& log_file, int level) const override
     {
-        log_file.printf("%*c BinaryOpExpr \n", level, '-');
+        log_file.printf("%*c BinaryOpExpr(%s) \n", level, '-', m_op.c_str());
         m_left->print(log_file, level + 1);
         m_right->print(log_file, level + 1);
     }
 
-private:
+    std::string           m_op;
     std::unique_ptr<Expr> m_left;
     std::unique_ptr<Expr> m_right;
 };
@@ -183,11 +185,18 @@ class FunctionCallExpr : public Expr
 public:
     std::string                         m_function_symbol;
 
+    Expr*                               m_function_being_called;
+
     std::vector<std::unique_ptr<Expr>>	m_arguments;
 
-    FunctionCallExpr(std::string func, decltype(m_arguments) arg)
-        : m_function_symbol{ std::move(func) }, m_arguments{ std::move(arg) }
+    FunctionCallExpr(std::string func, Expr* expr, decltype(m_arguments) arg)
+        : m_function_symbol{ std::move(func) }, m_function_being_called{expr}, m_arguments{ std::move(arg) }
     {}
+
+    Type const* inferred_type() const noexcept override
+    {
+        return m_function_being_called->inferred_type();
+    }
 
     std::string generate(Generator& g) const override { return g.generate(*this); }
 

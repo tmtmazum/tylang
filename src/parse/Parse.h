@@ -183,7 +183,14 @@ struct ParseContext
                     break;
                 case LexItem::Type::PAREN_CLOSE:
                     arguments.emplace_back(std::make_unique<IdExpr>(it->as_lexeme()));
-                    return make_parsed<FunctionCallExpr>(it + 2, function_symbol, std::move(arguments));
+                    if (auto func_expr = symbols.expr_at(function_symbol))
+                    {
+                        return make_parsed<FunctionCallExpr>(it + 2, function_symbol, func_expr, std::move(arguments));
+                    }
+                    else
+                    {
+                        throw ParseException(it, CompileError::undefined_function_being_called, "Call to undefined function");
+                    }
                 default:
                     throw ParseException(it, CompileError::unexpected_token, "Unexpected token during parse_function_call");
                 }
@@ -198,14 +205,28 @@ struct ParseContext
                     break;
                 case LexItem::Type::PAREN_CLOSE:
                     arguments.emplace_back(std::make_unique<Int32LiteralExpr>(it->as_lexeme()));
-                    return make_parsed<FunctionCallExpr>(it + 2, function_symbol, std::move(arguments));
+                    if (auto func_expr = symbols.expr_at(function_symbol))
+                    {
+                        return make_parsed<FunctionCallExpr>(it + 2, function_symbol, func_expr, std::move(arguments));
+                    }
+                    else
+                    {
+                        throw ParseException(it, CompileError::undefined_function_being_called, "Call to undefined function");
+                    }
                 default:
                     throw ParseException(it, CompileError::unexpected_token, "Unexpected token during parse_function_call");
                 }
             }
             else if(it->type == LexItem::Type::PAREN_CLOSE)
             {
-                return make_parsed<FunctionCallExpr>(it + 1, function_symbol, std::move(arguments));
+                if (auto func_expr = symbols.expr_at(function_symbol))
+                {
+                    return make_parsed<FunctionCallExpr>(it + 1, function_symbol, func_expr, std::move(arguments));
+                }
+                else
+                {
+                    throw ParseException(it, CompileError::undefined_function_being_called, "Call to undefined function");
+                }
             }
             else
             {
@@ -222,16 +243,15 @@ struct ParseContext
     {
         ParsedList<Expr> list;
         auto it = it_begin;
-        auto next = it_begin + 1;
         while (!it->is(LexItem::Type::eof))
         {
             if(it->is(LexItem::Type::NUM))
             {
                 std::tie(std::back_inserter(list.first), it) = make_parsed<Int32LiteralExpr>(it + 1, it->as_lexeme());
             }
-            else if (it->is(LexItem::Type::ID) && next->is(LexItem::Type::PAREN_OPEN))
+            else if (it->is(LexItem::Type::ID) && (it + 1)->is(LexItem::Type::PAREN_OPEN))
             {
-                std::tie(std::back_inserter(list.first), it) = parse_function_call(it->as_lexeme(), next + 1);
+                std::tie(std::back_inserter(list.first), it) = parse_function_call(it->as_lexeme(), it + 2);
             }
             else if (it->is(LexItem::Type::PLUS))
             {
@@ -244,7 +264,7 @@ struct ParseContext
                     throw ParseException(it - 1, CompileError::unexpected_token, "Expected exactly one operand before + operator");
                 }
                 auto rhs = parse_until_brace(it + 1);
-                return make_parsed<BinaryOpExpr>(rhs.second, std::move(list.first.front()), std::move(rhs.first));
+                return make_parsed<BinaryOpExpr>(rhs.second, std::move(list.first.front()), it->as_lexeme(), std::move(rhs.first));
             }
             else if (it->is(LexItem::Type::BRACE_CLOSE))
             {
@@ -253,14 +273,14 @@ struct ParseContext
             }
             else
             {
-                throw ParseException(it, CompileError::unexpected_token, "Unexpected symbol while parsing return expression");
+                throw PARSE_EXCEPTION(it, CompileError::unexpected_token);
             }
         }
         if (list.first.size() == 1)
         {
             return Parsed<Expr>{std::move(list.first.front()), it};
         }
-        throw ParseException(it_begin, CompileError::unexpected_token, "Unexpected symbol while parsing return expression");
+        throw PARSE_EXCEPTION(it, CompileError::unexpected_token);
     }
 
     inline Parsed<FunctionDefnExpr> parse_function(std::string name, ParseIndex it_begin)

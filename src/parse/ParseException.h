@@ -46,6 +46,9 @@ public:
     std::string	    m_message;
 };
 
+#define PARSE_EXCEPTION(position, error_enum) \
+    ParseException(position, error_enum, std::string{#error_enum} + __FUNCTION__ + ":" + std::to_string(__LINE__))
+
 inline auto make_unexpected_end_of_file(ParseIndex it, std::string operation)
 {
     return ParseException{ it, CompileError::unexpected_end_of_file,

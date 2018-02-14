@@ -167,7 +167,7 @@ namespace ty
                 else if (::isalpha(*it))
                 {
                     auto b = it;
-                    while (::isalnum(*it)) { it++; }
+                    while (::isalnum(*it) || *it == '_') { it++; }
                     list.emplace_back(special_id(&*b), &*b, &*it);
                     continue;
                 }
