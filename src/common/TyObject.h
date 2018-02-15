@@ -40,5 +40,7 @@ static T& Global()
 
 } // namespace ty::Attribute
 
-#define TY_ASSERTF(cond, format, ...) if(!(cond)) \
-  fprintf(stderr, "[%s][%s][%d] Assertion Failed: '" #cond "'\n" format "\n", __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__)
+#define TY_ASSERTF(cond, format, ...) if(!(cond)) {\
+  fprintf(stderr, "[%s][%s][%d] Assertion Failed: '" #cond "'\n" format "\n", __FILE__, __FUNCTION__, __LINE__, __VA_ARGS__); \
+  std::abort(); \
+}

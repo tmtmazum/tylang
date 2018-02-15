@@ -4,6 +4,7 @@
 #include <memory>
 #include <parse/Type.h>
 #include <cgen/Generator.h>
+#include "SymbolTable.h"
 #include "common/CompileInfo.h"
 #include "ParseException.h"
 #include <cppcoretools/print.h>
@@ -185,17 +186,23 @@ class FunctionCallExpr : public Expr
 public:
     std::string                         m_function_symbol;
 
-    Expr*                               m_function_being_called;
-
     std::vector<std::unique_ptr<Expr>>	m_arguments;
 
-    FunctionCallExpr(std::string func, Expr* expr, decltype(m_arguments) arg)
-        : m_function_symbol{ std::move(func) }, m_function_being_called{expr}, m_arguments{ std::move(arg) }
+    SymbolTable::ref_t                  m_symbols;
+
+    FunctionCallExpr(std::string func, decltype(m_arguments) arg, SymbolTable::ref_t symbols)
+        : m_function_symbol{ std::move(func) }
+        , m_arguments{ std::move(arg) }
+        , m_symbols{ symbols }
     {}
 
-    Type const* inferred_type() const noexcept override
+    Type const* inferred_type() const noexcept override 
     {
-        return m_function_being_called->inferred_type();
+        if (auto e = m_symbols->expr_at(m_function_symbol))
+        {
+            return e->inferred_type();
+        }
+        return nullptr; 
     }
 
     std::string generate(Generator& g) const override { return g.generate(*this); }

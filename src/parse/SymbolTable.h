@@ -3,21 +3,60 @@
 #include <unordered_map>
 #include <string>
 #include <memory>
+#include <atomic>
 #include "common/TyObject.h"
-#include "Expr.h"
 
 namespace ty
 {
 
 class SymbolTable;
+class Expr;
+
+template <typename T>
+class Referencable
+{
+    using move_safe_ptr_t = std::atomic<T const*>;
+    using move_safe_mutable_ptr_t = std::atomic<T*>;
+    
+    std::unique_ptr<move_safe_ptr_t>  m_original;
+
+    struct Ref
+    {
+        move_safe_ptr_t*         m_owner;
+
+        auto operator->() const  { return m_owner->load(); }
+    };
+
+public:
+    using ref_t = Ref;
+
+    explicit Referencable(T const* t)
+        : m_original{ std::make_unique<move_safe_ptr_t>(t) }
+    {}
+
+    Referencable(Referencable&& other)
+        : m_original{std::move(other.m_original)}
+    {
+        *m_original = static_cast<T const*>(this);
+        TY_ASSERTF(m_original->load(), "Invalid dynamic_cast");
+    }
+
+    //! Creates a move-safe reference through indirection
+    auto create_reference()
+    {
+        return Ref{ m_original.get() };
+    }
+};
 
 //! Table of symbols for a given scope
-class SymbolTable : public TyObject<Attribute::HasGlobal>
+class SymbolTable : public TyObject<Attribute::HasGlobal>, public Referencable<SymbolTable>
 {
 public: // member virtual
 
 	explicit SymbolTable(SymbolTable const* parent = nullptr)
-		: m_parent{ parent } {}
+		: Referencable(this)
+        , m_parent{ parent } 
+    {}
 
 	//! Binds a symbol to a Expr.
 	//! \pre	'name' must not already be in the SymbolTable
@@ -49,9 +88,11 @@ public: // member virtual
 	}
 
 	auto count() const { return m_definitions.size(); }
+
 private:	
-	std::unordered_map<std::string, Expr*>	                        m_definitions;
-	SymbolTable const*												m_parent = nullptr;
+    std::unordered_map<std::string, Expr*>	                        m_definitions;
+	
+    SymbolTable const*												m_parent = nullptr;
 };
 
 //! List of symbols chosen for export to outside of the module

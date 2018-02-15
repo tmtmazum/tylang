@@ -35,10 +35,17 @@ inline ParsedList<FunctionArgDeclExpr> parse_argument_decls(ParseIndex it_begin)
 struct ParseContext
 {
     ParseIndex                          begin;
+
     ParseIndex                          end;
+
     SymbolTable                         symbols;
+
     ExprList                            exprs;
+
     std::vector<std::string>            export_list;
+
+    //! List of symbols referenced internally (internal-linkage) by exported methods
+    std::vector<std::string>            internal_list;
 
     void print(cct::unique_file& out) const
     {
@@ -113,7 +120,7 @@ struct ParseContext
     }
 
     template <typename StringInserter>
-    auto parse_exports(ParseIndex it_begin, StringInserter insert)
+    auto parse_exports(ParseIndex it_begin, StringInserter& insert)
     {
         auto it = it_begin;
             
@@ -125,7 +132,8 @@ struct ParseContext
             }
             else if (it->type == LexItem::Type::ID)
             {
-                insert = std::string{ it->begin, it->end };
+                auto s = it->as_lexeme();
+                insert = s;
                 it = it + 1;
                 if (it->type == LexItem::Type::COMMA)
                 {
@@ -183,14 +191,7 @@ struct ParseContext
                     break;
                 case LexItem::Type::PAREN_CLOSE:
                     arguments.emplace_back(std::make_unique<IdExpr>(it->as_lexeme()));
-                    if (auto func_expr = symbols.expr_at(function_symbol))
-                    {
-                        return make_parsed<FunctionCallExpr>(it + 2, function_symbol, func_expr, std::move(arguments));
-                    }
-                    else
-                    {
-                        throw ParseException(it, CompileError::undefined_function_being_called, "Call to undefined function");
-                    }
+                    return make_parsed<FunctionCallExpr>(it + 2, function_symbol, std::move(arguments), symbols.create_reference());
                 default:
                     throw ParseException(it, CompileError::unexpected_token, "Unexpected token during parse_function_call");
                 }
@@ -205,28 +206,14 @@ struct ParseContext
                     break;
                 case LexItem::Type::PAREN_CLOSE:
                     arguments.emplace_back(std::make_unique<Int32LiteralExpr>(it->as_lexeme()));
-                    if (auto func_expr = symbols.expr_at(function_symbol))
-                    {
-                        return make_parsed<FunctionCallExpr>(it + 2, function_symbol, func_expr, std::move(arguments));
-                    }
-                    else
-                    {
-                        throw ParseException(it, CompileError::undefined_function_being_called, "Call to undefined function");
-                    }
+                    return make_parsed<FunctionCallExpr>(it + 2, function_symbol, std::move(arguments), symbols.create_reference());
                 default:
                     throw ParseException(it, CompileError::unexpected_token, "Unexpected token during parse_function_call");
                 }
             }
             else if(it->type == LexItem::Type::PAREN_CLOSE)
             {
-                if (auto func_expr = symbols.expr_at(function_symbol))
-                {
-                    return make_parsed<FunctionCallExpr>(it + 1, function_symbol, func_expr, std::move(arguments));
-                }
-                else
-                {
-                    throw ParseException(it, CompileError::undefined_function_being_called, "Call to undefined function");
-                }
+                return make_parsed<FunctionCallExpr>(it + 1, function_symbol, std::move(arguments), symbols.create_reference());
             }
             else
             {

@@ -47,7 +47,8 @@ TEST(parse, export1)
 {
     using namespace ty;
 
-    auto ast = parse(tokenize(R"(export(foo))"));
+    auto t = tokenize(R"(export(foo))");
+    auto ast = parse(t);
     EXPECT_TRUE(std::any_of(begin(ast.export_list), end(ast.export_list), [](auto i) { return i == "foo"; }));
 }
 
@@ -142,6 +143,33 @@ TEST(generate, foo2)
         }
     }
 }
+
+TEST(generate, func_wrapper)
+{
+    using namespace ty;
+
+    auto ast = parse(tokenize(R"(
+    export(five, five_wrapped)
+        five = @() -> {5} 
+        five_wrapped = @() -> { five() }
+    )"));
+
+    ast.print(cct::unique_file{ stdout });
+
+    ty::LLVM_IR_Generator g{ cct::unique_file{stdout} };
+    for (auto const& export_id : ast.export_list)
+    {
+        if (auto const* expr = ast.symbols.expr_at(export_id))
+        {
+            expr->generate(g);
+        }
+        else
+        {
+            fprintf(stderr, "Cannot find symbol '%s' for export", export_id.c_str());
+        }
+    }
+}
+
 
 
 TEST(parse, t0)

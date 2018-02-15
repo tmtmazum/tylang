@@ -19,6 +19,7 @@ class FunctionCallExpr;
 class FunctionDefnExpr;
 class MemberFunctionCallExpr;
 class AddExpr;
+struct ParseContext;
 
 
 //! Abstract interface for generating code
@@ -29,6 +30,8 @@ public:
 	//! in the given output langauge
 	virtual bool is_exportable_name(std::string const& name) const { return true; }
 
+    virtual void generate(ParseContext& context) = 0;
+
 	//! Export a symbol definition to the identifier 'name'
     //! If name is empty, an anonymous temporary will be created
     virtual std::string generate(FunctionDefnExpr const& expr) = 0;
@@ -38,6 +41,8 @@ public:
     virtual std::string generate(ReturnExpr const& expr) = 0;
 
     virtual std::string generate(BinaryOpExpr const& expr) = 0;
+    
+    virtual std::string generate(FunctionCallExpr const& expr) = 0;
 
     // DELETE THIS LATER
     virtual std::string generate(Expr const& expr) { throw NOT_YET_IMPLEMENTED(); }
